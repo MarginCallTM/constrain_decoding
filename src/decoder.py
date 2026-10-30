@@ -152,20 +152,101 @@ def classify_simple_object(text: str) -> str:
     return "VALID_PREFIX"
 
 
+def classify_number_prefix(text: str) -> str:
+    """Classify a JSON integer prefix"""
+
+    state = "START"
+
+    for char in text:
+        if state == "START":
+            if char == "-":
+                state = "SIGN"
+            elif char == "0":
+                state = "ZERO"
+            elif char in "123456789":
+                state = "DIGITS"
+            else:
+                return "INVALID"
+
+        elif state == "SIGN":
+            if char == "0":
+                state = "ZERO"
+            elif char in "123456789":
+                state = "DIGITS"
+            else:
+                return "INVALID"
+
+        elif state == "ZERO":
+            if char == ".":
+                state = "DOT"
+            elif char in "eE":
+                state = "EXP_MARK"
+            else:
+                return "INVALID"
+
+        elif state == "DIGITS":
+            if char in "0123456789":
+                continue
+            elif char == ".":
+                state = "DOT"
+            elif char in "eE":
+                state = "EXP_MARK"
+            else:
+                return "INVALID"
+
+        elif state == "DOT":
+            if char in "0123456789":
+                state = "FRACTION"
+            else:
+                return "INVALID"
+
+        elif state == "FRACTION":
+            if char in "0123456789":
+                continue
+            elif char in "eE":
+                state = "EXP_MARK"
+            else:
+                return "INVALID"
+
+        elif state == "EXP_MARK":
+            if char in "-+":
+                state = "EXP_SIGN"
+            elif char in "0123456789":
+                state = "EXP_DIGITS"
+            else:
+                return "INVALID"
+
+        elif state == "EXP_SIGN":
+            if char in "0123456789":
+                state = "EXP_DIGITS"
+            else:
+                return "INVALID"
+
+        elif state == "EXP_DIGITS":
+            if char not in "0123456789":
+                return "INVALID"
+
+    if state in ("ZERO", "DIGITS", "FRACTION", "EXP_DIGITS"):
+        return "COMPLETE"
+
+    return "VALID_PREFIX"
+
+
 if __name__ == "__main__":
     examples = [
-        '{"name": 8}',
-        '{"name": "Shrek",',
-        '{"name": "Shrek",}',
-        '{"name":}',
-        '{"name":',
-        '{"name": "Shrek", "city": "Lyon"}',
-        '{"name": "Shrek"}Hello',
+        "42",
+        "3.14",
+        "1e3",
+        "2E-4",
+        "3.14e+2",
+        "0e3",
+        "1e",
+        "1e-",
+        "1e-3",
+        "1e--3",
+        "1.2e3.4",
     ]
 
     for example in examples:
-        status = classify_simple_object(example)
-
-        print(f"Text: {repr(example)}")
-        print(f"Status: {status}")
-        print()
+        result = classify_number_prefix(example)
+        print(f"{example!r:10} -> {result}")
