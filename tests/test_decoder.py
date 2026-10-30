@@ -6,6 +6,7 @@ from src.decoder import (
     scan_json_structure,
     classify_simple_object,
     classify_number_prefix,
+    classify_nested_objects_prefix,
 )
 
 
@@ -97,3 +98,21 @@ def test_classify_simple_object(text: str, expected: str) -> None:
 def test_classify_number_prefix(text: str, expected: str) -> None:
     """Test JSON number prefix classification."""
     assert classify_number_prefix(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ('{"name":"Shrek"}', "COMPLETE"),
+        ('{"user":{"name":"Shrek"}}', "COMPLETE"),
+        ('{"user":{"name":"Shrek"}', "VALID_PREFIX"),
+        ('{"user":{', "VALID_PREFIX"),
+        ('{"user":{}}', "COMPLETE"),
+        ('{"user":{,}}', "INVALID"),
+        ('{"user":{"name":"Shrek",}}', "INVALID"),
+        ('{"user":{"name":"Shrek"}}Hello', "INVALID"),
+    ],
+)
+def test_nested_objects(text: str, expected: str) -> None:
+    """Test nested JSON object prefixes."""
+    assert classify_nested_objects_prefix(text) == expected

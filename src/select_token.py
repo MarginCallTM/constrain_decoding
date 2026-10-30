@@ -2,6 +2,8 @@ def select_token(
     logits: list[float],
     allowed_tokens: list[int]
 ) -> int:
+    if not allowed_tokens:
+        raise ValueError("No allowed tokens available")
     best_token = allowed_tokens[0]
     best_score = logits[best_token]
 

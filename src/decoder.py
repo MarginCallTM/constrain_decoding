@@ -232,6 +232,114 @@ def classify_number_prefix(text: str) -> str:
     return "VALID_PREFIX"
 
 
+def classify_nested_objects_prefix(text: str) -> str:
+    """Classify prefixes of nested JSON objects with string values"""
+
+    stack: list[str] = []
+    in_string = False
+    escaped = False
+    string_role = ""
+    completed = False
+
+    for char in text:
+
+        # A complete root object can only be followed by whitespace.
+        if completed:
+            if char not in " \t\n\r":
+                return "INVALID"
+            continue
+
+        # Process characters inside a JSON string
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+
+                if string_role == "key":
+                    stack[-1] = "EXPECT_COLON"
+                else:
+                    stack[-1] = "EXPECT_COMMA_OR_END"
+
+            elif ord(char) < 32:
+                return "INVALID"
+
+            continue
+
+        # Ignore whitepace outside strings.
+        if char in " \t\n\r":
+            continue
+
+        # Open the root object.
+        if not stack:
+            if char != "{":
+                return "INVALID"
+
+            stack.append("EXPECT_KEY_OR_END")
+            continue
+
+        state = stack[-1]
+
+        if state in ("EXPECT_KEY_OR_END", "EXPECT_KEY"):
+            if char == '"':
+                in_string = True
+                string_role = "key"
+
+            elif char == "}" and state == "EXPECT_KEY_OR_END":
+                stack.pop()
+                if not stack:
+                    completed = True
+
+            else:
+                return "INVALID"
+
+        elif state == "EXPECT_COLON":
+            if char == ":":
+                stack[-1] = "EXPECT_VALUE"
+            else:
+                return "INVALID"
+
+        # Expect a string or nested object
+        elif state == "EXPECT_VALUE":
+            if char == '"':
+                in_string = True
+                string_role = "value"
+
+            elif char == "{":
+                stack[-1] = "EXPECT_COMMA_OR_END"
+                stack.append("EXPECT_KEY_OR_END")
+
+            else:
+                return "INVALID"
+
+        # Expect coma or object closing
+        elif state == "EXPECT_COMMA_OR_END":
+            if char == ",":
+                stack[-1] = "EXPECT_KEY"
+
+            elif char == "}":
+                stack.pop()
+
+                if not stack:
+                    completed = True
+            else:
+                return "INVALID"
+        else:
+            return "INVALID"
+
+    if completed:
+        try:
+            json.loads(text)
+        except json.JSONDecodeError:
+            return "INVALID"
+
+        return "COMPLETE"
+
+    return "VALID_PREFIX"
+
+
 if __name__ == "__main__":
     examples = [
         "42",
